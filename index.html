@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GuardAI - Advanced Student Privacy Gateway</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-white h-screen flex flex-col font-sans">
+
+    <!-- Header -->
+    <header class="bg-gray-900 border-b border-gray-800 p-4 flex justify-between items-center shadow-lg">
+        <div class="flex items-center space-x-3">
+            <span class="text-3xl">🛡️</span>
+            <div>
+                <h1 class="text-xl font-bold tracking-wide text-blue-400">GuardAI Gateway</h1>
+                <p class="text-xs text-gray-400">Zero-Data Retention & Real-Time Student PII Shield</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <span class="inline-block w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+            <span class="text-xs text-green-400 font-semibold">Gateway Active</span>
+        </div>
+    </header>
+
+    <!-- Chat Container -->
+    <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl w-full mx-auto">
+        <!-- Welcome Card -->
+        <div class="bg-gray-900 p-5 rounded-xl border border-gray-800 shadow-md">
+            <h2 class="font-bold text-blue-400 text-base mb-1">Welcome to GuardAI Shield!</h2>
+            <p class="text-sm text-gray-300">Type any query containing sensitive details (Name, Roll No, Email, Phone, Address, Father's Name). The gateway will automatically mask them before forwarding to Google Gemini.</p>
+        </div>
+    </div>
+
+    <!-- Input Control Area -->
+    <div class="bg-gray-900 border-t border-gray-800 p-4 shadow-xl">
+        <div class="max-w-4xl mx-auto flex flex-col gap-3">
+            
+            <!-- File / Image attachment preview banner (Optional) -->
+            <div id="file-preview" class="hidden text-xs bg-gray-800 text-blue-300 p-2 rounded flex justify-between items-center">
+                <span id="file-name">Attached: None</span>
+                <button onclick="removeFile()" class="text-red-400 hover:text-red-300 font-bold">Remove</button>
+            </div>
+
+            <div class="flex gap-2 items-center">
+                <!-- File Upload Button -->
+                <label class="cursor-pointer bg-gray-800 hover:bg-gray-700 p-3 rounded-lg border border-gray-700 flex items-center justify-center transition" title="Upload Document/Image">
+                    📎
+                    <input type="file" id="file-input"
+accept="image/png,image/jpeg"
+class="hidden" onchange="handleFileSelect(event)">
+                </label>
+
+                <!-- Text Input Box -->
+                <input type="text" id="user-input" placeholder="Type secure prompt here (e.g., My name is Amit, Roll No: CS101)..." class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500 transition">
+                
+                <!-- Send Button -->
+                <button onclick="sendMessage()" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold text-sm transition shadow-lg flex items-center gap-2">
+                    <span>Send Securely</span> 🚀
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                document.getElementById("file-name").innerText = `Attached File: ${file.name}`;
+                document.getElementById("file-preview").classList.remove("hidden");
+            }
+        }
+
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById("file-input").value = "";
+            document.getElementById("file-preview").classList.add("hidden");
+        }
+
+        
+         
+async function sendMessage() {
+    const inputField = document.getElementById("user-input");
+    const chatContainer = document.getElementById("chat-container");
+    const text = inputField.value.trim();
+
+    if (!text && !selectedFile) return;
+
+    if (text && selectedFile) {
+        alert("Please send your text and image separately.");
+        return;
+    }
+
+    // Show user message safely
+    const userBubble = document.createElement("div");
+    userBubble.className = "bg-gray-900 p-4 rounded-xl border border-gray-800 ml-auto max-w-2xl";
+
+    const userText = document.createElement("p");
+    userText.className = "text-sm text-gray-200";
+    userText.textContent = selectedFile
+        ? "Uploaded: " + selectedFile.name
+        : text;
+
+    userBubble.appendChild(userText);
+    chatContainer.appendChild(userBubble);
+
+    inputField.value = "";
+
+    // Loading message
+    const loading = document.createElement("div");
+    loading.className = "bg-gray-900 p-4 rounded-xl text-gray-400 text-sm";
+    loading.textContent = "🛡️ GuardAI is scanning your request...";
+    chatContainer.appendChild(loading);
+
+    try {
+        let res;
+
+        if (selectedFile) {
+            // Send image to OCR endpoint
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+
+            res = await fetch("http://127.0.0.1:8003/upload-document", {
+                method: "POST",
+                body: formData
+            });
+        } else {
+            // Send text to chat endpoint
+            res = await fetch("http://127.0.0.1:8003/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ prompt: text })
+            });
+        }
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.detail || "Request failed");
+        }
+
+        loading.remove();
+
+        // Response card
+        const card = document.createElement("div");
+        card.className = "bg-gray-900 p-5 rounded-xl border border-gray-800 mr-auto max-w-3xl space-y-3";
+
+        const heading = document.createElement("h3");
+        heading.className = "text-blue-400 font-semibold";
+        heading.textContent = "🛡️ GuardAI Gateway ➔ Gemini";
+        card.appendChild(heading);
+
+        const audit = document.createElement("p");
+        audit.className = "text-sm text-yellow-400";
+        audit.textContent = "Privacy Audit: " +
+            (data.privacy_audit.is_safe
+                ? "No supported PII detected"
+                : "Masked: " + data.privacy_audit.detected_risks.join(", "));
+
+        card.appendChild(audit);
+
+        
+
+        const answer = document.createElement("p");
+        answer.className = "text-sm text-gray-200 whitespace-pre-wrap";
+        answer.textContent = data.ai_response || "No AI response received.";
+        card.appendChild(answer);
+
+        chatContainer.appendChild(card);
+
+    } catch (err) {
+        loading.textContent = "❌ Error: " + err.message;
+    }
+
+    removeFile();
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+  
+                
+                       
+        
+
+        // Enter key shortcut
+        document.getElementById("user-input").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
